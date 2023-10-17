@@ -1,0 +1,70 @@
+# C / C++
+
+# Compiled Object files
+*.o
+*.ko
+*.lo
+*.elf
+*.obj
+*.slo
+
+## Debug files
+*.dSYM/
+*.su
+*.idb
+*.pdb
+
+## Executables
+*.exe
+*.out
+*.app
+*.i*86
+*.x86_64
+*.hex
+
+## Fortran module files
+*.mod
+*.smod
+
+## Kernel Module Compile Results
+*.cmd
+*module_id*
+.tmp_versions/
+modules.order
+Module.symvers
+Mkfile.old
+dkms.conf
+
+## Libraries
+*.lib
+*.a
+*.la
+*.lo
+*.lai
+
+## Linker output
+*dlink*
+*.exp
+*.ilk
+*.map
+
+## Precompiled Headers
+*.gch
+*.pch
+
+## Prerequisites
+*.d
+
+## Shared objects (inc. Windows DLLs)
+*.dll
+*.so
+*.so.*
+*.dylib
+
+# CUDA
+*cudafe1*
+*.i
+*.ii
+*.gpu
+*.cubin*
+*.fatbin*
