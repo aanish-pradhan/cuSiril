@@ -7,7 +7,10 @@
 
 // INCLUDE LIBRARIES
 #include <cuda.h>
-#include "../../lib/Stacking/stack.h"
+extern "C"
+{
+	#include "stack.h"
+} 
 #include "stack_kernels.cu"
 
 // FUNCTIONS
@@ -22,7 +25,7 @@
  * @param blueSubframes Blue channels of flattened subframes
  * @return Pointer to a Stack on HOST
  */
-Stack* initializeStack(uint64_t numberOfSubframes, uint64_t imageWidth, 
+extern "C" Stack* initializeStack(uint64_t numberOfSubframes, uint64_t imageWidth, 
 	uint64_t imageHeight, uint16_t* redSubframes, uint16_t* greenSubframes, 
 		uint16_t* blueSubframes)
 {
@@ -110,7 +113,29 @@ Stack* sumStack(Stack* h_imageStack)
 	cudaMemcpy(h_imageStack->stackedGreen, d_imageStack->stackedGreen, 
 		h_imageStack->pixelsPerImage * sizeof(float), cudaMemcpyDeviceToHost);
 	cudaMemcpy(h_imageStack->stackedBlue, d_imageStack->stackedBlue, 
-		h_imageStack->pixelsPerImage * sizeof(float), cudaMemcpyDeviceToHost);	
+		h_imageStack->pixelsPerImage * sizeof(float), cudaMemcpyDeviceToHost);
+
+	// Free DEVICE allocation
+	cudaFree(d_imageStack->redSubframes);
+	d_imageStack->redSubframes = NULL;
+
+	cudaFree(d_imageStack->greenSubframes);
+	d_imageStack->greenSubframes = NULL;
+
+	cudaFree(d_imageStack->blueSubframes);
+	d_imageStack->blueSubframes = NULL;
+
+	cudaFree(d_imageStack->stackedRed);
+	d_imageStack->stackedRed = NULL;
+
+	cudaFree(d_imageStack->stackedGreen);
+	d_imageStack = NULL;
+
+	cudaFree(d_imageStack->stackedBlue);
+	d_imageStack->stackedBlue = NULL;
+
+	cudaFree(d_imageStack);
+	d_imageStack = NULL;
 	
 	return h_imageStack;
 }

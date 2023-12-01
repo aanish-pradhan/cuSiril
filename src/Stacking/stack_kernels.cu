@@ -7,9 +7,11 @@
 
 // INCLUDE LIBRARIES
 #include <math.h>
-#include "lib/Stacking/stack.h"
+#include "quickselect.cuh"
+#include "stack.cuh"
+#include "statistics.cuh"
 
-// FUNCTIONS
+// KERNELS
 /**
  * Sum stacking kernel. Subframes in the stack are split up by color channel 
  * and stacked independently. Each pixel in the stack is summed. The increase 
@@ -82,4 +84,99 @@ __global__ void sumStackKernel(Stack* imageStack, uint64_t* maximumPixel)
 	imageStack->stackedRed[pixelIndex] /= *maximumPixel;
 	imageStack->stackedGreen[pixelIndex] /= *maximumPixel;
 	imageStack->stackedBlue[pixelIndex] /= *maximumPixel;
+}
+
+/**
+ * Decides if a pixel should be rejected or not for Sigma Clipping.
+ * 
+ * @param pxiel Pixel value to evalulate
+ * @param center 
+ * @param standardDeviation
+ * @return True if the pixel should be kept, false if the pixel should be 
+ * rejected
+ */
+__device__ bool keepPixel(float pixel, float center, float standardDeviation,
+	float sigmaLow, float sigmaHigh)
+{
+	float sigmaUnitLow = center - standardDeviation * sigmaLow;
+	float sigmaUnitHigh = center + standardDeviation * sigmaHigh;
+
+	if (pixel < sigmaUnitLow || pixel > sigmaUnitHigh)
+	{
+		return false;
+	}
+	else
+	{
+		return true;
+	}
+}
+
+/**
+ * Sigma Clipping kernel. This is an iterative algorithm which will reject 
+ * pixels whose distance from median will be farthest than two given values in 
+ * sigma units (sigmaLow, sigmaHigh). The improvement in SNR is proportional to 
+ * sqrt(Number of subframes).
+ * 
+ * @param imageStack The image stack @see stack.h
+ * @param sigmaLow The lower standard deviation bound
+ * @param sigmaHigh The higher standard deviation bound
+ */
+__global__ void sigmaClippingKernel(Stack* imageStack, float sigmaLow, 
+	float sigmaHigh)
+{
+	// 2D thread indexes
+	int x = blockIdx.x * blockDim.x + threadIdx.x;
+	int y = blockIdx.y * blockDim.y + threadIdx.y;
+
+	/*
+	The subframes are flattened so we convert the 2D thread indexes into a 
+	linear, 1D index.
+	*/
+	int pixelIndex = imageStack->imageWidth * y + x;
+
+	// Legal thread index check
+	if (x < imageStack->imageWidth && y < imageStack->imageHeight)
+	{
+		uint64_t numberOfSubframes = imageStack->numberOfSubframes;
+
+		float redPixelArray[numberOfSubframes];
+		float greenPixelArray[numberOfSubframes];
+		float bluePixelArray[numberOfSubframes];
+		
+		for (uint64_t subframe = 0; subframe < numberOfSubframes; subframe++)
+		{
+			uint64_t subframeOffset = imageStack->pixelsPerImage * subframe;
+
+			redPixelArray[subframe] = imageStack->redSubframes[pixelIndex + subframeOffset];
+			greenPixelArray[subframe] = imageStack->greenSubframes[pixelIndex + subframeOffset];
+			bluePixelArray[subframe] = imageStack->blueSubframes[pixelIndex + subframeOffset];
+		}
+
+		// Compute median
+		float redPixelMedian = median(redPixelArray, numberOfSubframes);
+		float greenPixelMedian = median(greenPixelArray, numberOfSubframes);
+		float bluePixelMedian = median(bluePixelArray, numberOfSubframes);
+
+		// Compute standard deviation
+		char stdevType[] = "sample";
+		float redPixelStdev = stdev(redPixelArray, numberOfSubframes, 
+			redPixelMedian, stdevType);
+		float greenPixelStdev = stdev(greenPixelArray, numberOfSubframes, 
+			greenPixelMedian, stdevType);
+		float bluePixelStdev = stdev(bluePixelArray, numberOfSubframes, 
+			bluePixelMedian, stdevType);
+		
+		// Stacking
+		for (uint64_t subframe = 0; subframe < numberOfSubframes;
+			subframe++)
+		{
+			/*
+			The subframes are flattened so we offset pixelIndex to move to the 
+			next subframe in the stack.
+			*/
+			uint64_t subframeOffset = imageStack->pixelsPerImage * subframe;
+
+			// TODO: Check if pixel can be kept and accordingly add
+		}
+	}
 }
