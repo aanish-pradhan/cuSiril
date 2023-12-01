@@ -7,8 +7,11 @@
 
 // INCLUDE LIBRARIES
 #include <math.h>
-#include "quickselect.cuh"
-#include "statistics.cuh"
+extern "C"
+{
+	#include "quickselect.cuh"
+	#include "statistics.cuh"
+}
 
 // KERNELS
 /**
@@ -38,10 +41,10 @@ __device__ float stdev(float data[], uint64_t n, float center, char* type)
 	float sum = 0.0;
 	for (int i = 0; i < n; i++)
 	{
-		sum += powf32((data[i] - center), 2);
+		sum += (data[i] - center) * (data[i] - center);
 	}
 	
-	(strcmp(type, "sample") == 0) ? sum /= (n - 1) : sum /= n;
+	(type[0] == 's') ? sum /= (float) (n - 1) : sum /= (float) n;
 
-	return sqrtf32(sum);
+	return sqrtf(sum);
 }
