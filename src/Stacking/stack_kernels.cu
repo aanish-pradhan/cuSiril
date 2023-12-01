@@ -7,9 +7,11 @@
 
 // INCLUDE LIBRARIES
 #include <math.h>
-#include "quickselect.cuh"
-#include "stack.cuh"
-#include "statistics.cuh"
+extern "C"
+{
+	#include "stack.cuh"
+	#include "statistics.cuh"	
+}
 
 // KERNELS
 /**
@@ -23,7 +25,7 @@
  * @param imageStack The image stack @see stack.h
  * @param maximumPixel The normalization constant
  */
-__global__ void sumStackKernel(Stack* imageStack, uint64_t* maximumPixel)
+__global__ void sumStack(Stack* imageStack, uint64_t* maximumPixel)
 {
 	// 2D thread indexes
 	int x = blockIdx.x * blockDim.x + threadIdx.x;
@@ -121,7 +123,7 @@ __device__ bool keepPixel(float pixel, float center, float standardDeviation,
  * @param sigmaLow The lower standard deviation bound
  * @param sigmaHigh The higher standard deviation bound
  */
-__global__ void sigmaClippingKernel(Stack* imageStack, float sigmaLow, 
+__global__ void sigmaClipping(Stack* imageStack, float sigmaLow, 
 	float sigmaHigh)
 {
 	// 2D thread indexes
@@ -139,9 +141,9 @@ __global__ void sigmaClippingKernel(Stack* imageStack, float sigmaLow,
 	{
 		uint64_t numberOfSubframes = imageStack->numberOfSubframes;
 
-		float redPixelArray[numberOfSubframes];
-		float greenPixelArray[numberOfSubframes];
-		float bluePixelArray[numberOfSubframes];
+		float *redPixelArray = (float*) malloc(numberOfSubframes * sizeof(float));
+		float *greenPixelArray = (float*) malloc(numberOfSubframes * sizeof(float));
+		float *bluePixelArray = (float*) malloc(numberOfSubframes * sizeof(float));
 		
 		for (uint64_t subframe = 0; subframe < numberOfSubframes; subframe++)
 		{
@@ -170,13 +172,31 @@ __global__ void sigmaClippingKernel(Stack* imageStack, float sigmaLow,
 		for (uint64_t subframe = 0; subframe < numberOfSubframes;
 			subframe++)
 		{
-			/*
-			The subframes are flattened so we offset pixelIndex to move to the 
-			next subframe in the stack.
-			*/
 			uint64_t subframeOffset = imageStack->pixelsPerImage * subframe;
 
-			// TODO: Check if pixel can be kept and accordingly add
+			float redPixel = imageStack->redSubframes[pixelIndex + subframeOffset];
+			float greenPixel = imageStack->greenSubframes[pixelIndex + subframeOffset];
+			float bluePixel = imageStack->blueSubframes[pixelIndex + subframeOffset];
+
+			if (keepPixel(redPixel, redPixelMedian, redPixelStdev, sigmaLow, sigmaHigh))
+			{
+				imageStack->stackedRed[pixelIndex] += redPixel;
+			}
+
+			if (keepPixel(greenPixel, greenPixelMedian, greenPixelStdev, sigmaLow, sigmaHigh))
+			{
+				imageStack->stackedGreen[pixelIndex] += greenPixel;
+			}
+
+			if (keepPixel(bluePixel, bluePixelMedian, bluePixelStdev, sigmaLow, sigmaHigh))
+			{
+				imageStack->stackedBlue[pixelIndex] += bluePixel;
+			}
 		}
+
+		// Free arrays
+		free(redPixelArray);
+		free(greenPixelArray);
+		free(bluePixelArray);
 	}
 }
