@@ -6,7 +6,10 @@
  */
 
 // INCLUDE LIBRARIEs
-#include "quickselect.cuh"
+extern "C"
+{
+	#include "quickselect.cuh"
+}
 
 // KERNELS
 /**
