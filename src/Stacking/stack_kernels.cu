@@ -2,7 +2,7 @@
  * Implements DEVICE kernels for image stacking.
  * 
  * @author Aanish Pradhan
- * @version 2023-12-02 
+ * @version 2023-12-01 
  */
 
 // INCLUDE LIBRARIES
