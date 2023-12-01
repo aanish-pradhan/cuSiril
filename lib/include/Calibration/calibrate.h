@@ -4,7 +4,7 @@
  * Defines functions for calibration frame subtration.
  * 
  * @author Aanish Pradhan
- * @version 2023-11-20
+ * @version 2023-11-28
  */
 
 // INCLUDE LIBRARIES
@@ -12,8 +12,8 @@
 #include <stdbool.h>
 
 // FUNCTIONS
-Stack* subtractBDF(bool haveBiasFrames, Stack* biasFrames, bool haveDarkFrames, 
-	Stack* darkFrames, bool haveFlatFrames, Stack* flatFrames, 
+Stack* calibrate(bool useBiasFrames, Stack* biasFrames, bool useDarkFrames, 
+	Stack* darkFrames, bool useFlatFrames, Stack* flatFrames, 
 		Stack* lightFrames);
 
 #endif
