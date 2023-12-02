@@ -4,7 +4,7 @@
  * Defines DEVICE kernels for image stacking.
  * 
  * @author Aanish Pradhan
- * @version 2023-12-01 
+ * @version 2023-12-02 
  */
 
 // INCLUDE LIBRARIES
