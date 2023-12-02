@@ -10,8 +10,9 @@
 extern "C"
 {
 	#include "stack.h"
-} 
-#include "stack_kernels.cu"
+	#include "stack.cuh"
+}
+#include <stdlib.h>
 
 // FUNCTIONS
 /**
@@ -23,9 +24,9 @@ extern "C"
  * @param redSubframes Red channels of flattened subframes
  * @param greenSubframes Green channels of flattened subframes
  * @param blueSubframes Blue channels of flattened subframes
- * @return Pointer to a Stack on HOST
+ * @return Pointer to a Stack on the HOST
  */
-extern "C" Stack* initializeStack(uint64_t numberOfSubframes, uint64_t imageWidth, 
+Stack* initializeStackHOST(uint64_t numberOfSubframes, uint64_t imageWidth, 
 	uint64_t imageHeight, uint16_t* redSubframes, uint16_t* greenSubframes, 
 		uint16_t* blueSubframes)
 {
@@ -52,6 +53,80 @@ extern "C" Stack* initializeStack(uint64_t numberOfSubframes, uint64_t imageWidt
 }
 
 /**
+ * Initializes a copy of a Stack on the DEVICE from the HOST.
+ * 
+ * @param h_imageStack Initialized Stack on the HOST with populated attributes
+ * @param h_lookupStack Initialized Stack on HOST with empty attributes
+ * @return Pointer to a Stack on the DEVICE 
+ */
+Stack* initializeStackDEVICE(Stack* h_imageStack, Stack* h_lookupStack)
+{
+    // Allocate the Stack on the DEVICE
+    Stack* d_imageStack;
+    cudaMalloc(&d_imageStack, sizeof(Stack));
+
+    // Populate the non-pointer Stack attributes
+    cudaMemcpy(d_imageStack, h_imageStack, sizeof(Stack), cudaMemcpyHostToDevice);
+
+    // Populate the pointer Stack attributes
+    uint64_t N = h_imageStack->numberOfSubframes * h_imageStack->pixelsPerImage;
+
+    uint16_t* d_redSubframes, * d_greenSubframes, * d_blueSubframes;
+    cudaMalloc(&d_redSubframes, N * sizeof(uint16_t));
+    cudaMalloc(&d_greenSubframes, N * sizeof(uint16_t));
+    cudaMalloc(&d_blueSubframes, N * sizeof(uint16_t));
+
+    cudaMemcpy(d_redSubframes, h_imageStack->redSubframes, 
+		N * sizeof(uint16_t), cudaMemcpyHostToDevice);
+    cudaMemcpy(d_greenSubframes, h_imageStack->greenSubframes, 
+		N * sizeof(uint16_t), cudaMemcpyHostToDevice);
+    cudaMemcpy(d_blueSubframes, h_imageStack->blueSubframes, 
+		N * sizeof(uint16_t), cudaMemcpyHostToDevice);
+
+    // Copy DEVICE pointers addresses to corresponding fields in d_imageStack
+    cudaMemcpy(&(d_imageStack->redSubframes), &d_redSubframes, 
+		sizeof(uint16_t*), cudaMemcpyHostToDevice);
+    cudaMemcpy(&(d_imageStack->greenSubframes), &d_greenSubframes, 
+		sizeof(uint16_t*), cudaMemcpyHostToDevice);
+    cudaMemcpy(&(d_imageStack->blueSubframes), &d_blueSubframes, 
+		sizeof(uint16_t*), cudaMemcpyHostToDevice);
+
+	float *d_stackedRed, *d_stackedGreen, *d_stackedBlue;
+	cudaMalloc(&d_stackedRed, N * sizeof(float));
+	cudaMalloc(&d_stackedGreen, N * sizeof(float));
+	cudaMalloc(&d_stackedBlue, N * sizeof(float));
+
+	cudaMemcpy(&(d_imageStack->stackedRed), &d_stackedRed, 
+		sizeof(float*), cudaMemcpyHostToDevice);
+	cudaMemcpy(&(d_imageStack->stackedGreen), &d_stackedGreen, 
+		sizeof(float*), cudaMemcpyHostToDevice);
+	cudaMemcpy(&(d_imageStack->stackedBlue), &d_stackedBlue, 
+		sizeof(float*), cudaMemcpyHostToDevice);
+
+	/*
+	d_imageStack resides on the DEVICE. If we try to copy data from the DEVICE 
+	to the HOST by performing 
+	cudaMemcpy(h_imageStack->array, d_imageStack->array, ...), we will 
+	encounter a segmentation fault. d_imageStack-> deferences the pointer to 
+	d_imageStack's block of memory so we can access its attributes. Since the 
+	struct resides on VRAM, the CPU would be accessing illegal memory. To get 
+	around this, we utilize a "lookup struct". This struct resides on the HOST 
+	so that it can be deferenced but its pointer attributes contain VRAM 
+	address values so that we can retrieve data using cudaMemcpy() 
+	(e.g., cudaMemcpy(h_imageStack->array, h_lookupStack->array, ...))
+	*/
+
+	h_lookupStack->redSubframes = d_redSubframes;
+	h_lookupStack->greenSubframes = d_greenSubframes;
+	h_lookupStack->blueSubframes = d_blueSubframes;
+	h_lookupStack->stackedRed = d_stackedRed;
+	h_lookupStack->stackedGreen = d_stackedGreen;
+	h_lookupStack->stackedBlue = d_stackedBlue;
+
+    return d_imageStack;
+}
+
+/**
  * Sum stacking. Subframes in the stack are split up by color channel 
  * and stacked independently. Each pixel in the stack is summed. The increase 
  * in signal-to-noise ration (SNR) is proportional to 
@@ -59,41 +134,15 @@ extern "C" Stack* initializeStack(uint64_t numberOfSubframes, uint64_t imageWidt
  * maximum pixel value out of all color channels and saved as a 32-bit floating 
  * point image. This function launches sumStackKernel @see stack_kernels.cu
  * 
- * @param h_imageStack Initialized Stack on HOST
+ * @param h_imageStack Initialized Stack on the HOST
  * @return Stack with sum stacked subframes
  */
-Stack* sumStack(Stack* h_imageStack)
+Stack* launchSumStack(Stack* h_imageStack)
 {
-	uint64_t N = h_imageStack->numberOfSubframes * h_imageStack->pixelsPerImage;
-
 	// Allocate the Stack on DEVICE
-	Stack* d_imageStack;
-	cudaMalloc(&d_imageStack, sizeof(Stack));
-
-	// Populate the Stack attributes
-	cudaMemset(&d_imageStack->numberOfSubframes, 
-		h_imageStack->numberOfSubframes, sizeof(uint64_t));
-	cudaMemset(&d_imageStack->imageWidth, h_imageStack->imageWidth, 
-		sizeof(uint64_t));
-	cudaMemset(&d_imageStack->imageHeight, h_imageStack->imageHeight, 
-		sizeof(uint64_t));
-	cudaMemset(&d_imageStack->pixelsPerImage, h_imageStack->pixelsPerImage, 
-		sizeof(uint64_t));
-
-	cudaMalloc(&d_imageStack->redSubframes, N * sizeof(uint16_t));
-	cudaMalloc(&d_imageStack->greenSubframes, N * sizeof(uint16_t));
-	cudaMalloc(&d_imageStack->blueSubframes, N * sizeof(uint16_t));
-
-	cudaMemcpy(d_imageStack->redSubframes, h_imageStack->redSubframes, 
-		N * sizeof(uint16_t), cudaMemcpyHostToDevice);
-	cudaMemcpy(d_imageStack->greenSubframes, h_imageStack->greenSubframes, 
-		N * sizeof(uint16_t), cudaMemcpyHostToDevice);
-	cudaMemcpy(d_imageStack->blueSubframes, h_imageStack->blueSubframes, 
-		N * sizeof(uint16_t), cudaMemcpyHostToDevice);
-
-	cudaMalloc(&d_imageStack->stackedRed, N * sizeof(float));
-	cudaMalloc(&d_imageStack->stackedGreen, N * sizeof(float));
-	cudaMalloc(&d_imageStack->stackedBlue, N * sizeof(float));
+	Stack* h_lookupStack = (Stack*) malloc(sizeof(Stack));
+	memcpy(h_lookupStack, h_imageStack, sizeof(Stack));
+	Stack* d_imageStack = initializeStackDEVICE(h_imageStack, h_lookupStack);
 
 	// Additional kernel parameters
 	uint64_t* d_maximumPixel;
@@ -104,7 +153,7 @@ Stack* sumStack(Stack* h_imageStack)
 	dim3 B(32, 32);
 	dim3 G((h_imageStack->imageWidth + B.x - 1) / B.x, 
 		(h_imageStack->imageHeight + B.y - 1) / B.y);
-	sumStackKernel <<< G, B >>> (d_imageStack, d_maximumPixel);
+	sumStack <<< G, B >>> (d_imageStack, d_maximumPixel);
 	cudaDeviceSynchronize();
 
 	// Copy stacked frames back to HOST
@@ -138,4 +187,63 @@ Stack* sumStack(Stack* h_imageStack)
 	d_imageStack = NULL;
 	
 	return h_imageStack;
+}
+
+/**
+ * Launches sigma clipping kernel.
+ * 
+ * @param h_imageStack Initialized Stack on the HOST
+ * @param sigmaLow Sigma unit lower bound for rejection
+ * @param sigmaHigh Sigma unit upper bound for rejection
+ * @return Stack containing average stacked with sigma clipping rejection 
+ * subframes
+ */
+Stack* launchSigmaClipping(Stack* h_imageStack, float sigmaLow, 
+	float sigmaHigh)
+{
+	// Allocate the lookup struct on the HOST @see initializeStackDEVICE()
+	Stack* h_lookupStack = (Stack*) malloc(sizeof(Stack));
+	h_lookupStack->numberOfSubframes = h_imageStack->numberOfSubframes;
+	h_lookupStack->imageWidth = h_imageStack->imageWidth;
+	h_lookupStack->imageHeight = h_imageStack->imageHeight;
+	h_lookupStack->pixelsPerImage = h_imageStack->pixelsPerImage;
+
+	// Allocate the Stack on the DEVICE
+	Stack* d_imageStack = initializeStackDEVICE(h_imageStack, h_lookupStack);
+
+	// DEVICE kernel launch configuration
+	dim3 B(32, 32);
+	dim3 G((h_imageStack->imageWidth + B.x - 1) / B.x, 
+		(h_imageStack->imageHeight + B.y - 1) / B.y);
+	sigmaClipping <<< G, B >>> (d_imageStack, sigmaLow, sigmaHigh);
+	cudaDeviceSynchronize();
+
+	// Copy stacked frames back to HOST
+	cudaMemcpy(h_imageStack->stackedRed, h_lookupStack->stackedRed, 
+		h_imageStack->pixelsPerImage * sizeof(float), cudaMemcpyDeviceToHost);
+	cudaMemcpy(h_imageStack->stackedGreen, h_lookupStack->stackedGreen, 
+		h_imageStack->pixelsPerImage * sizeof(float), cudaMemcpyDeviceToHost);
+	cudaMemcpy(h_imageStack->stackedBlue, h_lookupStack->stackedBlue, 
+		h_imageStack->pixelsPerImage * sizeof(float), cudaMemcpyDeviceToHost);
+
+	// Free arrays and null pointers
+	cudaFree(h_lookupStack->redSubframes);
+	cudaFree(h_lookupStack->greenSubframes);
+	cudaFree(h_lookupStack->blueSubframes);
+	cudaFree(h_lookupStack->stackedRed);
+	cudaFree(h_lookupStack->stackedGreen);
+	cudaFree(h_lookupStack->stackedBlue);
+	cudaFree(d_imageStack);
+	free(h_lookupStack);
+
+	h_lookupStack->redSubframes = NULL;
+	h_lookupStack->greenSubframes = NULL;
+	h_lookupStack->blueSubframes = NULL;
+	h_lookupStack->stackedRed = NULL;
+	h_lookupStack->stackedGreen = NULL;
+	h_lookupStack->stackedBlue = NULL;
+	d_imageStack = NULL;
+	h_lookupStack = NULL;
+
+	return h_imageStack;	
 }
