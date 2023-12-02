@@ -4,7 +4,7 @@
  * Defines objects and functions for image stacking.
  * 
  * @author Aanish Pradhan
- * @version 2023-11-20
+ * @version 2023-12-02
  */
 
 // INCLUDE LIBRARIES
@@ -39,11 +39,20 @@ typedef struct Stack_s {
  * @param redSubframes Red channels of flattened subframes
  * @param greenSubframes Green channels of flattened subframes
  * @param blueSubframes Blue channels of flattened subframes
- * @return Pointer to a Stack on HOST
+ * @return Pointer to a Stack on the HOST
  */
-Stack* initializeStack(uint64_t numberOfSubframes, uint64_t imageWidth, 
+Stack* initializeStackHOST(uint64_t numberOfSubframes, uint64_t imageWidth, 
 	uint64_t imageHeight, uint16_t* redSubframes, uint16_t* greenSubframes, 
 		uint16_t* blueSubframes);
+
+/**
+ * Initializes a copy of a Stack on the DEVICE from the HOST.
+ * 
+ * @param h_imageStack Initialized Stack on the HOST with populated attributes
+ * @param h_lookupStack Initialized Stack on HOST with empty attributes
+ * @return Pointer to a Stack on the DEVICE 
+ */
+Stack* initializeStackDEVICE(Stack* h_imageStack, Stack* h_lookupStack);
 
 /**
  * Sum stacking. Subframes in the stack are split up by color channel 
@@ -54,9 +63,19 @@ Stack* initializeStack(uint64_t numberOfSubframes, uint64_t imageWidth,
  * point image. This function copies data to the DEVICE and launches 
  * sumStackKernel @see stack_kernels.cu
  * 
- * @param h_imageStack Initialized Stack on HOST
+ * @param h_imageStack Initialized Stack on the HOST
  * @return Stack with sum stacked subframes
  */
-Stack* sumStack(Stack* h_imageStack);
+Stack* launchSumStack(Stack* h_imageStack);
+
+/**
+ * Launches sigma clipping kernel.
+ * 
+ * @param h_imageStack Initialized Stack on the HOST
+ * @return Stack containing average stacked with sigma clipping rejection 
+ * subframes
+ */
+Stack* launchSigmaClipping(Stack* h_imageStack, float sigmaLow, 
+	float sigmaHigh);
 
 #endif
