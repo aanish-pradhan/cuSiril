@@ -18,12 +18,12 @@
  * in signal-to-noise ration (SNR) is proportional to 
  * sqrt(Number of subframes). The sum is performed and then normalized by the 
  * maximum pixel value out of all color channels and saved as a 32-bit floating 
- * point image. This kernel is launched by sumStack() @see stack.cu
+ * point image. This kernel is launched by launchSumStack() @see stack.cu
  * 
  * @param imageStack The image stack @see stack.h
  * @param maximumPixel The normalization constant
  */
-__global__ void sumStackKernel(Stack* imageStack, uint64_t* maximumPixel);
+__global__ void sumStack(Stack* imageStack, uint64_t* maximumPixel);
 
 
 /**
@@ -38,7 +38,6 @@ __global__ void sumStackKernel(Stack* imageStack, uint64_t* maximumPixel);
 __device__ bool keepPixel(float value, float center, float standardDeviation, 
 	float sigmaLow, float sigmaHigh);
 
-
 /**
  * Sigma Clipping kernel. This is an iterative algorithm which will reject 
  * pixels whose distance from median will be farthest than two given values in 
@@ -48,7 +47,7 @@ __device__ bool keepPixel(float value, float center, float standardDeviation,
  * @param sigmaLow The lower standard deviation bound
  * @param sigmaHigh The higher standard deviation bound
  */
-__global__ void sigmaClippingKernel(Stack* imageStack, float sigmaLow, 
+__global__ void sigmaClipping(Stack* imageStack, float sigmaLow, 
 	float sigmaHigh);
 
 #endif
