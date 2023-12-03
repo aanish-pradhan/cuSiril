@@ -4,12 +4,11 @@
  * Defines DEVICE kernels for computing basic statistics.
  * 
  * @author Aanish Pradhan
- * @version 2023-12-01 
+ * @version 2023-12-02 
  */
 
 // INCLUDE LIBRARIES
 #include <stdint.h>
-#include <string.h>
 
 // KERNELS
 /**
