@@ -91,13 +91,13 @@ __global__ void sumStack(Stack* imageStack, uint64_t* maximumPixel)
 /**
  * Decides if a pixel should be rejected or not for Sigma Clipping.
  * 
- * @param pxiel Pixel value to evalulate
+ * @param pixel Pixel value to evalulate
  * @param center 
  * @param standardDeviation
  * @return True if the pixel should be kept, false if the pixel should be 
  * rejected
  */
-__device__ bool keepPixel(float pixel, float center, float standardDeviation,
+__device__ bool rejectPixel(float pixel, float center, float standardDeviation,
 	float sigmaLow, float sigmaHigh)
 {
 	float sigmaUnitLow = center - standardDeviation * sigmaLow;
@@ -105,11 +105,11 @@ __device__ bool keepPixel(float pixel, float center, float standardDeviation,
 
 	if (pixel < sigmaUnitLow || pixel > sigmaUnitHigh)
 	{
-		return false;
+		return true;
 	}
 	else
 	{
-		return true;
+		return false;
 	}
 }
 
@@ -178,17 +178,20 @@ __global__ void sigmaClipping(Stack* imageStack, float sigmaLow,
 			float greenPixel = imageStack->greenSubframes[pixelIndex + subframeOffset];
 			float bluePixel = imageStack->blueSubframes[pixelIndex + subframeOffset];
 
-			if (keepPixel(redPixel, redPixelMedian, redPixelStdev, sigmaLow, sigmaHigh))
+			if (!rejectPixel(redPixel, redPixelMedian, redPixelStdev, sigmaLow, 
+				sigmaHigh))
 			{
 				imageStack->stackedRed[pixelIndex] += redPixel;
 			}
 
-			if (keepPixel(greenPixel, greenPixelMedian, greenPixelStdev, sigmaLow, sigmaHigh))
+			if (!rejectPixel(greenPixel, greenPixelMedian, greenPixelStdev, 
+				sigmaLow, sigmaHigh))
 			{
 				imageStack->stackedGreen[pixelIndex] += greenPixel;
 			}
 
-			if (keepPixel(bluePixel, bluePixelMedian, bluePixelStdev, sigmaLow, sigmaHigh))
+			if (!rejectPixel(bluePixel, bluePixelMedian, bluePixelStdev, 
+				sigmaLow, sigmaHigh))
 			{
 				imageStack->stackedBlue[pixelIndex] += bluePixel;
 			}

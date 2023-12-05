@@ -32,10 +32,10 @@ __global__ void sumStack(Stack* imageStack, uint64_t* maximumPixel);
  * @param value Pixel value to evalulate
  * @param center 
  * @param standardDeviation
- * @return True if the pixel should be kept, false if the pixel should be 
- * rejected
+ * @return True if the pixel should be rejected, false if the pixel should be 
+ * kept
  */
-__device__ bool keepPixel(float value, float center, float standardDeviation, 
+__device__ bool rejectPixel(float value, float center, float standardDeviation, 
 	float sigmaLow, float sigmaHigh);
 
 /**
