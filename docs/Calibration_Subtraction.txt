@@ -1,0 +1,2 @@
+Calibration subtraction starts with dividing light frames by UINT16_MAX then 
+subtract float type stacked calibration frames
