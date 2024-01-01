@@ -69,6 +69,9 @@ dkms.conf
 *.cubin*
 *.fatbin*
 
+# MacOS
+.DS_Store
+
 # Python
 
 ## Byte-compiled / optimized / DLL files
