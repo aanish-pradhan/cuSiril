@@ -8,6 +8,7 @@
 // INCLUDE LIBRARIES
 #include "calibrate.h"
 #include "calibrate_kernels.cu"
+#include "stack.cuh"
 #include <math.h>
 
 // DEFINITIONS
@@ -19,21 +20,14 @@ Stack* calibrate(bool useBiasFrames, Stack* biasFrames, bool useDarkFrames,
 {
 	if (useBiasFrames || useDarkFrames || useFlatFrames)
 	{	
-		
-		
-		
-		
-		
-		
-		// Normalize Light frames
-
+		normalizeLightFrames(lightFrames);
 
 
 		// Check if Bias frames are provided
 		if (useBiasFrames == true)
 		{
-			// TODO: Stack Bias frames with specified method
-			// TODO: Subtract master Bias frame from Light frames
+			sigmaClipping(biasFrames, 3.0, 3.0);	
+			subtractMasterCalibrationFrame(lightFrames, biasFrames);
 		}
 
 		// Check if Dark frames are provided
@@ -41,21 +35,21 @@ Stack* calibrate(bool useBiasFrames, Stack* biasFrames, bool useDarkFrames,
 		{
 			if (useBiasFrames == true)
 			{
-				// TODO: Subtract master Bias frame from Dark frames
+				subtractMasterCalibrationFrame(darkFrames, biasFrames);
 			}
-			// TODO: Stack (corrected) Dark frames with specified method
-			// TODO: Subtract master Dark frame from Light frames 
+			sigmaClipping(darkFrames, 3.0, 3.0);
+			subtractMasterCalibrationFrame(lightFrames, darkFrames);
 		}
 
 		// Check if Flat frames are provided
-		if (haveFlatFrames == true)
+		if (useFlatFrames == true)
 		{
-			if (haveBiasFrames == true)
+			if (useBiasFrames == true)
 			{
-				// TODO: Subtract master Bias frame from Flat frames
+				subtractMasterCalibrationFrame(flatFrames, biasFrames);
 			}
-			// TODO: Stack (corrected) Flat frames with specified method
-			// TODO: Divide Light frames by master Flat frame
+			sigmaClipping(flatFrames, 3.0, 3.0);
+			divideFlatFrames(lightFrames, flatFrames);
 		}
 	}
 
