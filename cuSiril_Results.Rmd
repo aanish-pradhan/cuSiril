@@ -1,0 +1,42 @@
+---
+title: "R Notebook"
+output: html_notebook
+---
+
+This is an [R Markdown](http://rmarkdown.rstudio.com) Notebook. When you execute code within the notebook, the results appear beneath the code. 
+
+Try executing this chunk by clicking the *Run* button within the chunk or by placing your cursor inside it and pressing *Ctrl+Shift+Enter*. 
+
+```{r}
+library(ggplot2)
+
+numberOfFrames <- c(5, 7, 10)
+sirilTimes <- c(65, 72, 80)
+cuSirilTimes <- c(15, 19, 24)
+speedupFactor <- sirilTimes / cuSirilTimes
+data <- data.frame(numberOfFrames, sirilTimes, cuSirilTimes, speedupFactor)
+```
+
+```{r}
+ggplot(data) +
+  geom_line(aes(numberOfFrames, sirilTimes, color = "Siril")) +
+  geom_line(aes(numberOfFrames, cuSirilTimes, color = "cuSiril")) +
+  labs(title = "Execution Time vs. Number of Frames Stacked",
+       subtitle = "Sigma Clipping",
+       x = "Number of Frames",
+       y = "Execution Time (s)") +
+  scale_color_manual(values = c("cuSiril" = "darkgreen", "Siril" = "purple"),
+                     labels = c("cuSiril", "Siril"),
+                     name = "Program")
+```
+
+```{r}
+ggplot(data) + 
+	geom_line(aes(numberOfFrames, speedupFactor)) + 
+	labs(title = "cuSiril Speedup",
+		 subtitle = "Sigma Clipping",
+		 x = "Number of Frames",
+		 y = "Speedup Factor")
+```
+
+
